@@ -1,0 +1,16 @@
+services:
+  mojo-dev:
+    build: .
+    volumes:
+      # Mount the project root into the container — edits on host reflect immediately
+      - .:/app
+      # Persist the pixi environment so pixi install is a no-op after the first run
+      - pixi-cache:/app/.pixi
+    working_dir: /app
+    # Run pixi install on startup, then drop into a shell
+    command: bash -c "pixi install && pixi shell"
+    stdin_open: true
+    tty: true
+
+volumes:
+  pixi-cache:
