@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # socket.address — SocketAddress, AddressFamily, SocketType, Shutdown and constants
 # Platform: Linux only (enforced via comptime assert in SocketAddress.__init__).
 

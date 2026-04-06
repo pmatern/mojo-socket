@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # socket — public API re-exports
 # Provides: TcpListener, TcpStream, Socket, SocketAddress, AddressFamily, SocketType, Shutdown
 

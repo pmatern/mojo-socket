@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # tests/test_client.mojo — TcpStream: connect, peer_addr, resource release
 
 from std.testing import assert_equal, assert_true, assert_raises

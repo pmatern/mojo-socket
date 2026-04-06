@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # socket.socket — Socket: raw fd wrapper (low-level escape hatch)
 # Platform guard applied in __init__ via comptime assert.
 

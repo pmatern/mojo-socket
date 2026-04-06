@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # socket.tcp_stream — TcpStream: connect (factory), send, recv, shutdown,
 #                          peer_addr, local_addr, into_socket
 

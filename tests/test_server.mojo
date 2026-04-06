@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # tests/test_server.mojo — TcpListener: bind, accept, local_addr
 
 from std.testing import assert_equal, assert_true, assert_raises

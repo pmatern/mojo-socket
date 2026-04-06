@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # tests/test_data.mojo — TcpStream: send, recv, shutdown
 
 from std.testing import assert_equal, assert_true

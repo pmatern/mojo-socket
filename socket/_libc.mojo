@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # socket._libc — private FFI: external_call wrappers, sockaddr structs, helpers
 # All symbols in this file are private to socket (prefix _ convention).
 
