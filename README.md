@@ -2,8 +2,8 @@
 
 A Mojo socket library that wraps the POSIX / libc network API in an idiomatic,
 ownership-safe interface. The design follows the same principles as Mojo's own
-standard library: move semantics over garbage collection, explicit error
-propagation, and zero hidden allocation.
+standard library: deterministic ownership, explicit error propagation, and no
+hidden allocation.
 
 ## Design
 
