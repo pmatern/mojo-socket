@@ -1,0 +1,11 @@
+.git/
+.gitignore
+.pixi/
+specs/
+*.md
+.DS_Store
+*.log
+.env
+.env.*
+.vscode/
+.idea/
