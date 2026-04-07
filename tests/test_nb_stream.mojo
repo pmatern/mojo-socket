@@ -35,9 +35,7 @@ def test_nb_stream_recv_would_block_on_empty() raises:
     var stream = NonBlockingTcpStream.connect(addr)
     _ = listener.accept()  # keep listener alive past connect; drain backlog
 
-    var buf = List[UInt8](capacity=256)
-    for _ in range(256):
-        buf.append(UInt8(0))
+    var buf = List[UInt8](length=256, fill=0)
     var result = stream.recv(Span[mut=True, UInt8](buf))
     assert_true(result.is_would_block() or result.is_closed())
 
@@ -75,9 +73,7 @@ def test_nb_stream_recv_closed_on_fin() raises:
     # shutdown from our side instead
     stream.shutdown(Shutdown(c_int(0)))   # SHUT_RD
 
-    var buf = List[UInt8](capacity=256)
-    for _ in range(256):
-        buf.append(UInt8(0))
+    var buf = List[UInt8](length=256, fill=0)
     var r = stream.recv(Span[mut=True, UInt8](buf))
     # After shutdown(SHUT_RD), recv should return closed or would_block
     assert_true(r.is_closed() or r.is_would_block())
@@ -113,9 +109,7 @@ def test_nb_stream_send_recv_roundtrip() raises:
         var cev = Events(capacity=4)
         _ = poll.poll(cev, timeout_ms=500)
 
-        var buf = List[UInt8](capacity=64)
-        for _ in range(64):
-            buf.append(UInt8(0))
+        var buf = List[UInt8](length=64, fill=0)
         var r = client.recv(Span[mut=True, UInt8](buf))
         assert_true(r.is_data() or r.is_would_block())
 

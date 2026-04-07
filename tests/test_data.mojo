@@ -44,9 +44,7 @@ def test_echo_bytes_match() raises:
     var n_sent = client.send(Span(payload))
     assert_true(n_sent > 0)
 
-    var buf = List[Byte](capacity=64)
-    for _ in range(64):
-        buf.append(0)
+    var buf = List[Byte](length=64, fill=0)
     var n_recv = result.stream.recv(Span[mut=True, Byte](buf))
     assert_equal(n_recv, n_sent)
     for i in range(n_recv):
@@ -142,9 +140,7 @@ def test_recv_zero_on_peer_close() raises:
 
     # client shuts down write → server's recv returns 0 (EOF)
     client.shutdown(ShutdownWrite)
-    var buf = List[Byte](capacity=64)
-    for _ in range(64):
-        buf.append(0)
+    var buf = List[Byte](length=64, fill=0)
     var n = result.stream.recv(Span[mut=True, Byte](buf))
     assert_equal(n, 0)
 
@@ -160,9 +156,7 @@ def test_shutdown_write_signals_eof() raises:
     listener.close()
 
     result.stream.shutdown(ShutdownWrite)
-    var buf = List[Byte](capacity=64)
-    for _ in range(64):
-        buf.append(0)
+    var buf = List[Byte](length=64, fill=0)
     var n = client.recv(Span[mut=True, Byte](buf))
     assert_equal(n, 0)
 

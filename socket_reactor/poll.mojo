@@ -70,9 +70,7 @@ struct Events(Movable):
             element_size = 12   # sizeof(epoll_event) packed
         else:
             element_size = 32   # sizeof(kevent)
-        self._buf = List[UInt8](capacity=capacity * element_size)
-        for _ in range(capacity * element_size):
-            self._buf.append(UInt8(0))
+        self._buf = List[UInt8](length=capacity * element_size, fill=0)
 
     def __moveinit__(out self, *, deinit take: Self):
         self._buf   = take._buf^
