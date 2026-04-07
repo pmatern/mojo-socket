@@ -37,13 +37,17 @@ tests/
 ## Commands
 
 ```bash
-# All commands must run inside Docker — Mojo does not run on native macOS host
+# Option 1: Docker (Linux x86_64/aarch64, or for consistent cross-platform dev)
 docker compose run --rm mojo-dev
-
 # Inside container:
 pixi install
 pixi run test-all
-# or individually:
+
+# Option 2: Native (macOS on Apple Silicon only — Intel Macs must use Docker)
+pixi install
+pixi run test-all
+
+# Individual tests (works in Docker or native):
 pixi run mojo -I . tests/test_foundation.mojo
 pixi run mojo -I . tests/test_server.mojo
 pixi run mojo -I . tests/test_client.mojo
