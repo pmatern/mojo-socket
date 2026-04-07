@@ -72,7 +72,7 @@ struct Events(Movable):
             element_size = 32   # sizeof(kevent)
         self._buf = List[UInt8](length=capacity * element_size, fill=0)
 
-    def __moveinit__(out self, *, deinit take: Self):
+    def __init__(out self, *, deinit take: Self):
         self._buf   = take._buf^
         self._count = take._count
         self._cap   = take._cap
@@ -154,7 +154,7 @@ struct Poll(Movable):
     def __init__(out self, fd: c_int):
         self._fd = fd
 
-    def __moveinit__(out self, *, deinit take: Self):
+    def __init__(out self, *, deinit take: Self):
         self._fd = take._fd
 
     def __del__(deinit self):
