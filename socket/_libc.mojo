@@ -116,6 +116,7 @@ def _errno_name(code: Int) -> String:
         if code == 110: return "ETIMEDOUT"
         if code == 111: return "ECONNREFUSED"
         if code == 113: return "EHOSTUNREACH"
+        if code == 115: return "EINPROGRESS"
         if code == 125: return "ECANCELED"
     else:
         if code == 35:  return "EAGAIN"
@@ -128,6 +129,7 @@ def _errno_name(code: Int) -> String:
         if code == 57:  return "ENOTCONN"
         if code == 60:  return "ETIMEDOUT"
         if code == 61:  return "ECONNREFUSED"
+        if code == 36:  return "EINPROGRESS"
         if code == 65:  return "EHOSTUNREACH"
         if code == 89:  return "ECANCELED"
         if code == 102: return "EOPNOTSUPP"

@@ -8,8 +8,12 @@ platforms = ["linux-64"]
 mojo = ">=0.26.2.0,<0.27"
 
 [tasks]
-test-foundation = "mojo -I . tests/test_foundation.mojo"
-test-server     = "mojo -I . tests/test_server.mojo"
-test-client     = "mojo -I . tests/test_client.mojo"
-test-data       = "mojo -I . tests/test_data.mojo"
-test-all        = { depends-on = ["test-foundation", "test-server", "test-client", "test-data"] }
+test-foundation          = "mojo -I . tests/test_foundation.mojo"
+test-server              = "mojo -I . tests/test_server.mojo"
+test-client              = "mojo -I . tests/test_client.mojo"
+test-data                = "mojo -I . tests/test_data.mojo"
+test-reactor-foundation  = "mojo -I . tests/test_reactor_foundation.mojo"
+test-register            = "mojo -I . tests/test_register.mojo"
+test-nb-stream           = "mojo -I . tests/test_nb_stream.mojo"
+test-nb-listener         = "mojo -I . tests/test_nb_listener.mojo"
+test-all                 = { depends-on = ["test-foundation", "test-server", "test-client", "test-data", "test-reactor-foundation", "test-register", "test-nb-stream", "test-nb-listener"] }
