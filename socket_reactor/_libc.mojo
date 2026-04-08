@@ -84,13 +84,9 @@ def _is_linux_aarch64() -> Bool:
     - Defaults to False (x86-64) if not set
     """
     comptime if CompilationTarget.is_linux():
-        try:
-            # external_call["getenv"] returns 0 (NULL) if var not set, non-zero pointer if set
-            var result = external_call["getenv", Int]("MOJO_LINUX_AARCH64\0".unsafe_ptr())
-            return result != 0
-        except:
-            # If anything fails, default to x86-64
-            return False
+        # getenv returns 0 (NULL) if var not set, non-zero pointer if set
+        var result = external_call["getenv", Int]("MOJO_LINUX_AARCH64\0".unsafe_ptr())
+        return result != 0
     else:
         return False
 
