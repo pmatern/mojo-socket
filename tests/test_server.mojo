@@ -26,8 +26,8 @@ def test_local_addr_returns_bound_address() raises:
 
 def test_accept_returns_stream_and_peer() raises:
     var listener = TcpListener.bind(SocketAddress("127.0.0.1", 0))
-    var server_addr = listener.local_addr()
-    var client = TcpStream.connect(server_addr)
+    var port = listener.local_addr().port
+    var client = TcpStream.connect(SocketAddress("127.0.0.1", port))
     var result = listener.accept()
     assert_equal(result.peer.ip, "127.0.0.1")
     result.stream.close()

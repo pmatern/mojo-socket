@@ -52,6 +52,15 @@ struct _sockaddr_in6(Copyable):
     var sin6_scope_id: UInt32                  # 4 bytes
 
 
+@fieldwise_init
+struct _stat(Copyable):
+    """Minimal stat struct for fstat — we only need it to exist for the call.
+    Layout doesn't matter since we only check the return code, not the contents.
+    144 bytes is enough to hold struct stat on Linux/macOS x86-64.
+    """
+    var _padding: InlineArray[UInt8, 144]
+
+
 # -----------------------------------------------------------------------
 # Byte-order helpers (inline — Linux x86-64 is little-endian; network = big-endian)
 # -----------------------------------------------------------------------
@@ -293,6 +302,8 @@ def _parse_sockaddr_in6(sa: _sockaddr_in6) raises -> _ParsedAddr:
 
 def _fd_is_open(fd: Int) -> Bool:
     """Returns True if the OS file descriptor fd is still open.
-    Uses fcntl(F_GETFD) — POSIX portable (Linux and macOS).
+    Uses fstat — more direct than fcntl(F_GETFD), POSIX portable (Linux and macOS).
+    Returns False if fstat returns -1 (invalid fd).
     """
-    return external_call["fcntl", c_int](c_int(fd), F_GETFD) >= 0
+    var buf = stack_allocation[1, _stat]()
+    return external_call["fstat", c_int](c_int(fd), buf) >= 0

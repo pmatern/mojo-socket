@@ -17,3 +17,7 @@ test-register            = "mojo -I . tests/test_register.mojo"
 test-nb-stream           = "mojo -I . tests/test_nb_stream.mojo"
 test-nb-listener         = "mojo -I . tests/test_nb_listener.mojo"
 test-all                 = { depends-on = ["test-foundation", "test-server", "test-client", "test-data", "test-reactor-foundation", "test-register", "test-nb-stream", "test-nb-listener"] }
+
+# Platform-specific environment for ARM64
+[target.linux-aarch64.activation.env]
+MOJO_LINUX_AARCH64 = "1"

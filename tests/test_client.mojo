@@ -32,8 +32,8 @@ def test_peer_addr_returns_server_address() raises:
 
 def test_local_addr_returns_local_endpoint() raises:
     var listener = TcpListener.bind(SocketAddress("127.0.0.1", 0))
-    var server_addr = listener.local_addr()
-    var client = TcpStream.connect(server_addr)
+    var port = listener.local_addr().port
+    var client = TcpStream.connect(SocketAddress("127.0.0.1", port))
     var local = client.local_addr()
     assert_equal(local.ip, "127.0.0.1")
     assert_true(local.port > 0)
@@ -57,8 +57,8 @@ def test_connect_refused_raises() raises:
 
 def _capture_stream_fd() raises -> Int:
     var listener = TcpListener.bind(SocketAddress("127.0.0.1", 0))
-    var server_addr = listener.local_addr()
-    var client = TcpStream.connect(server_addr)
+    var port = listener.local_addr().port
+    var client = TcpStream.connect(SocketAddress("127.0.0.1", port))
     var fd = Int(client._socket.fd)
     listener.close()
     return fd
@@ -72,8 +72,8 @@ def test_stream_fd_released_on_drop() raises:
 
 def test_stream_close_idempotent() raises:
     var listener = TcpListener.bind(SocketAddress("127.0.0.1", 0))
-    var server_addr = listener.local_addr()
-    var client = TcpStream.connect(server_addr)
+    var port = listener.local_addr().port
+    var client = TcpStream.connect(SocketAddress("127.0.0.1", port))
     client.close()
     client.close()  # second close must not crash
     listener.close()

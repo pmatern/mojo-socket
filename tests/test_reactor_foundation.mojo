@@ -55,7 +55,7 @@ def test_set_nonblocking() raises:
     # Create a real socket fd, set nonblocking, verify via F_GETFL
     var sock = Socket(AddressFamily(2), SocketType(1))
     _set_nonblocking(sock.fd)
-    var flags = external_call["fcntl", c_int](sock.fd, F_GETFL)
+    var flags = external_call["fcntl", c_int](sock.fd, F_GETFL, c_int(0))
     comptime if CompilationTarget.is_linux():
         assert_true((flags & O_NONBLOCK_LINUX) != 0)
     else:

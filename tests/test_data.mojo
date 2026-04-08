@@ -95,12 +95,20 @@ def test_recv_after_peer_close_raises() raises:
     # Close the server side to simulate peer death, then send from client
     result.stream.close()
 
+    # Try to recv to process the FIN from the closed connection
+    var buf_bytes = List[UInt8](length=4, fill=0)
+    try:
+        _ = client.recv(Span(buf_bytes))
+    except:
+        pass  # May or may not raise depending on timing
+
     var raised = False
-    # First send may succeed (kernel buffer), second should fail
+    # First few sends may succeed (kernel buffer), later ones should fail
+    # macOS may need more attempts to detect the closed connection
     var payload = "data".as_bytes()
     try:
-        _ = client.send(Span(payload))
-        _ = client.send(Span(payload))
+        for _ in range(100):
+            _ = client.send(Span(payload))
     except e:
         var msg = String(e)
         assert_true(

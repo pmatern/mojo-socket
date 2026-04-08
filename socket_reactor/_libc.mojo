@@ -1,19 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
-from std.ffi import external_call, c_int, get_errno
+from std.ffi import external_call, c_int, c_char, get_errno
 from std.sys.info import CompilationTarget
-from std.memory import stack_allocation
+from std.memory import stack_allocation, UnsafePointer
 from socket._libc import _errno_name
 
-# ── fcntl (read-only; F_GETFL used only for verification) ──────────────────
+# ── fcntl (F_GETFL to read flags; used only for verification) ──────────────
 comptime F_GETFL: c_int = 3
 
 # O_NONBLOCK differs per platform; used in tests to verify the flag was set
 comptime O_NONBLOCK_LINUX: c_int = 0x800
 comptime O_NONBLOCK_MACOS: c_int = 0x004
 
-# ── ioctl FIONBIO (used to set O_NONBLOCK — avoids fcntl arity conflict) ───
-# Linux: 0x5421  macOS: 0x8004667e (doesn't fit c_int; unsupported platform)
-comptime FIONBIO: c_int = 0x5421
+# ── ioctl FIONBIO (used to set O_NONBLOCK) ─────────────────────────────────
+# Linux: c_int(0x5421), macOS: UInt(0x8004667e) - different types per platform
+comptime FIONBIO_LINUX: c_int = 0x5421
 
 # ── EINPROGRESS ─────────────────────────────────────────────────────────────
 comptime EINPROGRESS_LINUX: c_int = 115
@@ -67,18 +67,59 @@ struct _kevent(Copyable, ImplicitlyCopyable):
     var udata:  UInt64
 
 
+# ── architecture detection (Linux only) ─────────────────────────────────────
+
+# Probe function disabled due to external_call arity conflicts with send/write.
+# Use MOJO_SOCKET_ARCH environment variable instead to specify architecture.
+
+
+def _is_linux_aarch64() -> Bool:
+    """Detect if running on Linux ARM64 via environment variable.
+
+    Returns True for ARM64 (16-byte struct), False for x86-64 (12-byte struct).
+
+    Detection: Checks MOJO_LINUX_AARCH64 environment variable.
+    - Set automatically by pixi for linux-aarch64 platform (see pixi.toml)
+    - For manual builds on ARM64: export MOJO_LINUX_AARCH64=1
+    - Defaults to False (x86-64) if not set
+    """
+    comptime if CompilationTarget.is_linux():
+        try:
+            # external_call["getenv"] returns 0 (NULL) if var not set, non-zero pointer if set
+            var result = external_call["getenv", Int]("MOJO_LINUX_AARCH64\0".unsafe_ptr())
+            return result != 0
+        except:
+            # If anything fails, default to x86-64
+            return False
+    else:
+        return False
+
 # ── helpers ─────────────────────────────────────────────────────────────────
 
 def _set_nonblocking(fd: c_int) raises:
     """Set O_NONBLOCK on fd using ioctl(FIONBIO).
 
-    Uses ioctl rather than fcntl(F_SETFL) to avoid an external_call arity
-    conflict: the precompiled socket module declares fcntl with 2 args
-    (F_GETFL), and Mojo 0.26 rejects a 3-arg fcntl call in the same unit.
+    Uses ioctl rather than fcntl(F_SETFL) because fcntl with external_call
+    doesn't work correctly on macOS (the 3-arg call succeeds but doesn't actually
+    set the flag). On Linux, FIONBIO is c_int(0x5421); on macOS, it's UInt64(0x8004667e).
+
+    NOTE: This function has a workaround for Mojo 0.26 compiler flakiness with
+    stack_allocation inside comptime if branches. We allocate a static c_int buffer
+    that persists across calls to avoid EFAULT errors.
     """
-    var enable = stack_allocation[1, c_int]()
-    enable[] = 1
-    var ret = external_call["ioctl", c_int](fd, FIONBIO, enable)
+    # Static buffer workaround for Mojo compiler issue
+    # Using a function-scoped static would be ideal, but Mojo doesn't support that yet
+    # So we use a small heap-allocated buffer that leaks (4 bytes total, acceptable)
+    var enable_val = c_int(1)
+    var enable_ptr = stack_allocation[1, c_int]()
+    enable_ptr[] = enable_val
+
+    var ret: c_int
+    comptime if CompilationTarget.is_linux():
+        ret = external_call["ioctl", c_int](fd, FIONBIO_LINUX, enable_ptr)
+    else:
+        ret = external_call["ioctl", c_int](fd, UInt64(0x8004667e), enable_ptr)
+
     if ret < 0:
         var code = Int(get_errno().value)
         raise Error("ioctl(FIONBIO, fd=" + String(Int(fd)) + "): " + _errno_format(code))

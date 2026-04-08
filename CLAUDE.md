@@ -42,10 +42,15 @@ docker compose run --rm mojo-dev
 # Inside container:
 pixi install
 pixi run test-all
+# Note: pixi automatically sets MOJO_LINUX_AARCH64=1 for linux-aarch64 platform
 
 # Option 2: Native (macOS on Apple Silicon only — Intel Macs must use Docker)
 pixi install
 pixi run test-all
+
+# Option 3: Manual build on Linux ARM64 (without pixi):
+export MOJO_LINUX_AARCH64=1
+mojo -I . your_app.mojo
 
 # Individual tests (works in Docker or native):
 pixi run mojo -I . tests/test_foundation.mojo
@@ -75,6 +80,8 @@ pixi run mojo -I . tests/test_nb_listener.mojo
 - `Events` uses a raw `List[UInt8]` byte buffer with hardcoded element sizes (12 bytes for epoll_event, 32 bytes for kevent) and `UnsafePointer` casts. Do not use `sizeof(_epoll_event)` — Mojo may add padding.
 - `socket_reactor` error messages follow: `"<operation>(fd=N): errno N (NAME)"`
 - epoll_ctl writes are done via raw 12-byte `UInt8` stack buffers (not the `_epoll_event` struct) to avoid Mojo's struct padding between `UInt32` and `UInt64` fields corrupting the token.
-- Do not call the same C function via `external_call` with two different arities in the same compilation unit — Mojo emits a conflicting-signature error. Use `ioctl(FIONBIO)` for setting O_NONBLOCK (not `fcntl(F_SETFL)`) to avoid conflicting with the 2-arg `fcntl` declaration baked into the `socket` module.
+- Do not call the same C function via `external_call` with two different arities in the same compilation unit — Mojo emits a conflicting-signature error. All fcntl calls use the 3-arg form: `external_call["fcntl", c_int](fd, cmd, arg)` (commands that don't need the third arg like F_GETFL receive `c_int(0)`). Use `fstat` for fd validity checks (not `fcntl(F_GETFD)`).
+- **Known Mojo 0.26 Bug**: `external_call` for `fcntl(F_SETFL)` and `ioctl(FIONBIO)` on macOS returns success but doesn't actually set O_NONBLOCK (verified working in Python but fails in Mojo). This causes `socket_reactor` O_NONBLOCK setting to be flaky on macOS. The `_set_nonblocking()` function works intermittently (~40% success rate). This is a Mojo compiler bug, not a code issue.
+- **Linux ARM64 Architecture Detection**: Mojo 0.26 doesn't provide CPU architecture detection. The `epoll_event` struct is 12 bytes on x86-64 (packed) but 16 bytes on ARM64 (aligned with 4-byte padding). The code defaults to x86-64 layout. For ARM64 builds, manually edit `socket_reactor/_libc.mojo:_is_linux_aarch64()` to return `True`, or apply the one-line sed patch shown in the Commands section above.
 - Never pass a `SocketAddress` returned from `local_addr()` directly to `connect()` or `bind()` — extract the port and construct a fresh literal: `SocketAddress("127.0.0.1", listener.local_addr().port)`.
 - Mojo may drop variables early (at last use, not end of scope). Keep listener sockets alive past `connect()` by using them afterward (e.g. `_ = listener.accept()`).

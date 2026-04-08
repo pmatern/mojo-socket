@@ -47,7 +47,7 @@ def test_nb_stream_send_returns_sent_or_would_block() raises:
     # Use poll to wait for connect to complete
     var poll = Poll.create()
     var stream = NonBlockingTcpStream.connect(addr)
-    _ = listener.accept()  # keep listener alive past connect; drain backlog
+    var accepted = listener.accept()  # keep accepted stream alive to prevent EPIPE
     poll.register(stream.fd, Token(UInt64(1)), Write)
 
     var events = Events(capacity=4)
@@ -56,6 +56,8 @@ def test_nb_stream_send_returns_sent_or_would_block() raises:
     var msg = "hello reactor".as_bytes()
     var result = stream.send(Span[UInt8](msg))
     assert_true(result.is_sent() or result.is_would_block())
+    # Use accepted to prevent early drop
+    _ = accepted.stream.fd
 
 
 # ---------------------------------------------------------------------------

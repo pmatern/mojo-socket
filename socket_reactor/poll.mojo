@@ -67,7 +67,10 @@ struct Events(Movable):
         self._count = 0
         var element_size: Int
         comptime if CompilationTarget.is_linux():
-            element_size = 12   # sizeof(epoll_event) packed
+            # epoll_event size differs by CPU architecture:
+            # x86-64: 12 bytes (packed), ARM64: 16 bytes (aligned)
+            from socket_reactor._libc import _is_linux_aarch64
+            element_size = 16 if _is_linux_aarch64() else 12
         else:
             element_size = 32   # sizeof(kevent)
         self._buf = List[UInt8](length=capacity * element_size, fill=0)
@@ -89,12 +92,18 @@ struct Events(Movable):
             return self._read_kevent(i)
 
     def _read_epoll_event(self, i: Int) -> Event:
-        # epoll_event layout: UInt32 events (4 bytes) + UInt64 data (8 bytes)
-        # Packed: no padding between them on Linux x86-64.
-        var base = i * 12
+        # epoll_event layout differs by CPU architecture:
+        # x86-64: 12 bytes (UInt32 events + UInt64 data at offset 4)
+        # ARM64:  16 bytes (UInt32 events + 4 byte padding + UInt64 data at offset 8)
+        from socket_reactor._libc import _is_linux_aarch64
+        var is_arm64 = _is_linux_aarch64()
+        var elem_size = 16 if is_arm64 else 12
+        var data_offset = 8 if is_arm64 else 4
+
+        var base = i * elem_size
         var ptr = self._buf.unsafe_ptr()
         var events_ptr = (ptr + base).bitcast[UInt32]()
-        var data_ptr   = (ptr + base + 4).bitcast[UInt64]()
+        var data_ptr   = (ptr + base + data_offset).bitcast[UInt64]()
         var ev = events_ptr[]
         var token_val = data_ptr[]
         var flags = UInt32(0)
@@ -242,10 +251,17 @@ struct Poll(Movable):
     # ── Linux epoll helpers ──────────────────────────────────────────────────
 
     def _epoll_ctl_add(self, fd: c_int, token: Token, interest: Interest) raises:
-        # Write a packed 12-byte epoll_event directly at byte offsets to avoid
-        # any padding Mojo inserts between UInt32 and UInt64 in a struct.
-        # Layout: [UInt32 events @ 0][UInt64 data/token @ 4]
-        var buf = stack_allocation[12, UInt8]()
+        # epoll_event layout differs by CPU architecture:
+        # x86-64: 12 bytes (packed), token at offset 4
+        # ARM64:  16 bytes (aligned), token at offset 8
+        from socket_reactor._libc import _is_linux_aarch64
+        var is_arm64 = _is_linux_aarch64()
+        var buf_size = 16 if is_arm64 else 12
+        var data_offset = 8 if is_arm64 else 4
+
+        var buf = stack_allocation[16, UInt8]()  # Allocate max size
+        for i in range(buf_size):
+            buf[i] = 0  # Zero the buffer (including any padding)
         var ev_flags = UInt32(0)
         if interest._wants_read():
             ev_flags |= EPOLLIN | EPOLLRDHUP
@@ -253,7 +269,7 @@ struct Poll(Movable):
             ev_flags |= EPOLLOUT
         ev_flags |= EPOLLERR | EPOLLHUP
         buf.bitcast[UInt32]()[] = ev_flags
-        (buf + 4).bitcast[UInt64]()[] = token.value
+        (buf + data_offset).bitcast[UInt64]()[] = token.value
         var ret = external_call["epoll_ctl", c_int](
             self._fd, EPOLL_CTL_ADD, fd, buf,
         )
@@ -261,7 +277,14 @@ struct Poll(Movable):
             raise Error("epoll_ctl(ADD, fd=" + String(Int(fd)) + "): " + _errno_str())
 
     def _epoll_ctl_mod(self, fd: c_int, token: Token, interest: Interest) raises:
-        var buf = stack_allocation[12, UInt8]()
+        from socket_reactor._libc import _is_linux_aarch64
+        var is_arm64 = _is_linux_aarch64()
+        var buf_size = 16 if is_arm64 else 12
+        var data_offset = 8 if is_arm64 else 4
+
+        var buf = stack_allocation[16, UInt8]()
+        for i in range(buf_size):
+            buf[i] = 0
         var ev_flags = UInt32(0)
         if interest._wants_read():
             ev_flags |= EPOLLIN | EPOLLRDHUP
@@ -269,7 +292,7 @@ struct Poll(Movable):
             ev_flags |= EPOLLOUT
         ev_flags |= EPOLLERR | EPOLLHUP
         buf.bitcast[UInt32]()[] = ev_flags
-        (buf + 4).bitcast[UInt64]()[] = token.value
+        (buf + data_offset).bitcast[UInt64]()[] = token.value
         var ret = external_call["epoll_ctl", c_int](
             self._fd, EPOLL_CTL_MOD, fd, buf,
         )
@@ -278,7 +301,7 @@ struct Poll(Movable):
 
     def _epoll_ctl_del(self, fd: c_int) raises:
         # Kernel ignores the event pointer for EPOLL_CTL_DEL; pass any valid ptr.
-        var buf = stack_allocation[12, UInt8]()
+        var buf = stack_allocation[16, UInt8]()
         var ret = external_call["epoll_ctl", c_int](
             self._fd, EPOLL_CTL_DEL, fd, buf,
         )
@@ -289,6 +312,11 @@ struct Poll(Movable):
 
     def _kevent_add(self, fd: c_int, token: Token, interest: Interest) raises:
         # Submit changes one filter at a time via the changelist
+        # Use zero timespec (immediate return) instead of malformed pointer
+        var zero_ts = stack_allocation[2, Int64]()
+        zero_ts[0] = Int64(0)
+        zero_ts[1] = Int64(0)
+
         if interest._wants_read():
             var kev = _kevent(
                 UInt64(fd), EVFILT_READ,
@@ -303,7 +331,7 @@ struct Poll(Movable):
                 c_int(1),
                 stack_allocation[1, _kevent](),  # no events output
                 c_int(0),
-                stack_allocation[1, UInt8](),    # NULL timeout (non-blocking change)
+                zero_ts.bitcast[UInt8](),        # zero timeout (immediate return)
             )
             if ret < 0:
                 raise Error("kevent(ADD READ, fd=" + String(Int(fd)) + "): " + _errno_str())
@@ -321,13 +349,17 @@ struct Poll(Movable):
                 c_int(1),
                 stack_allocation[1, _kevent](),
                 c_int(0),
-                stack_allocation[1, UInt8](),
+                zero_ts.bitcast[UInt8](),
             )
             if ret < 0:
                 raise Error("kevent(ADD WRITE, fd=" + String(Int(fd)) + "): " + _errno_str())
 
     def _kevent_del(self, fd: c_int) raises:
         # Delete both EVFILT_READ and EVFILT_WRITE; ignore ENOENT on each
+        var zero_ts = stack_allocation[2, Int64]()
+        zero_ts[0] = Int64(0)
+        zero_ts[1] = Int64(0)
+
         for filt in [EVFILT_READ, EVFILT_WRITE]:
             var kev = _kevent(
                 UInt64(fd), filt, EV_DELETE,
@@ -341,5 +373,5 @@ struct Poll(Movable):
                 c_int(1),
                 stack_allocation[1, _kevent](),
                 c_int(0),
-                stack_allocation[1, UInt8](),
+                zero_ts.bitcast[UInt8](),
             )
