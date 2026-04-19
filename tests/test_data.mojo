@@ -9,27 +9,6 @@ from socket._libc import _fd_is_open
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _connect_pair() raises -> AcceptResult:
-    """Returns AcceptResult(.stream=server, .peer=client_addr) + sets up listener.
-
-    NOTE: Returns server side in .stream. Caller owns a separate client.
-    Use _connect_pair_full for both sides.
-    """
-    var listener = TcpListener.bind(SocketAddress("127.0.0.1", 0))
-    var port = listener.local_addr().port
-    var client = TcpStream.connect(SocketAddress("127.0.0.1", port))
-    var result = listener.accept()
-    listener.close()
-    # We need to return both client and server — use AcceptResult for server,
-    # but we also need the client. Caller pattern: connect_pair manually.
-    client.close()
-    return result^
-
-
-# ---------------------------------------------------------------------------
 # send/recv tests
 # ---------------------------------------------------------------------------
 
